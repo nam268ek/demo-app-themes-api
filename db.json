@@ -5,70 +5,80 @@
             "name": "Ubud",
             "description": "A newsletter-integrated and personal Ghost theme. Choose from six homepage styles and customize them with your favorite colors.",
             "image": "https://aspirethemes.com/images/themes/ubud/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.0.4"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc5",
             "name": "Krabi",
             "description": "Membership and Subscription Ghost Theme",
             "image": "https://aspirethemes.com/images/themes/krabi/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.1.2"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc6",
             "name": "Penang",
             "description": "Membership and Subscription Ghost Theme",
             "image": "https://aspirethemes.com/images/themes/penang/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.2.6"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc7",
             "name": "Hue",
             "description": "Ghost Theme for Podcasting and Blogging 🎙",
             "image": "https://aspirethemes.com/images/themes/hue/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.0.9"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc8",
             "name": "Melaka",
             "description": "Blog and Magazine Ghost Theme",
             "image": "https://aspirethemes.com/images/themes/melaka/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.1.8"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc9",
             "name": "Nubia",
             "description": "A simple and clean theme for your Ghost blog.",
             "image": "https://aspirethemes.com/images/themes/nubia/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.5.0"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc0",
             "name": "Sinai",
             "description": "A simple and clean theme for your Ghost blog.",
             "image": "https://aspirethemes.com/images/themes/sinai/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.2.1"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc1",
             "name": "East",
             "description": "A simple and clean theme for your Ghost blog.",
             "image": "https://aspirethemes.com/images/themes/east/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.3.1"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc2",
             "name": "Aspire",
             "description": "A simple and clean theme for your Ghost blog.",
             "image": "https://aspirethemes.com/images/themes/aspire/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.5.9"
         },
         {
             "id": "2a540bd2-86cc-401d-b52f-70a3dc338dc3",
             "name": "Maxima",
             "description": "A simple and clean theme for your Ghost blog.",
             "image": "https://aspirethemes.com/images/themes/maxima/preview.webp",
-            "price": 149
+            "price": 149,
+            "version": "1.3.0"
         }
     ]
 }
