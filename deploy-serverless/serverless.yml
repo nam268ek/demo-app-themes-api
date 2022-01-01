@@ -1,6 +1,7 @@
 org: nam268ek
 app: deploy-serverless
 service: deploy-serverless
+useDotenv: true
 plugins:
   - serverless-dotenv-plugin
 
@@ -14,7 +15,6 @@ provider:
 functions:
   api:
     handler: handler.handler
-        
     events:
       - http:
           path: /
