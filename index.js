@@ -431,4 +431,4 @@ app.post("/cart", authenticateToken, async (req, res) => {
 
 // app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
 
-module.exports.handler = serverless(app);// deploy to serverless platform
+module.exports.index = serverless(app);// deploy to serverless platform
