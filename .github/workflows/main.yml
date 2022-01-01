@@ -1,29 +1,65 @@
-name: Serverless Deployement Example
+# name: Deploy Prod
+# on:
+#   push:
+#     tags: # Deploy tag (e.g. v1.0) to production
+#       - 'v**'
+# jobs:
+#   deploy-prod:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v1
+#     - uses: actions/setup-node@v1
+#       with:
+#         node-version: '10.x'
+#     - name: Install Serverless Framework
+#       run: npm install -g serverless
+#     - name: Serverless AWS authentication
+#       run: sls config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#     - name: Create env file
+#       run: | # cp sample.env.yml env.yml
+#         cat > env.yml << EOF
+#         ${{ secrets.ENV }}
+#         EOF
+#     - name: Install NPM dependencies
+#       run: npm install
+#     # Optional
+#     #- name: Build assets
+#     #  run: npm run assets-prod
+#     - name: Deploy Lambda functions
+#       run: sls deploy -s prod
+#     # Optional (to use with serverless-finch serverless plugin)
+#     #- name: Deploy assets to S3
+#     #  run: sls client deploy --no-delete-contents --no-confirm -s prod
 
-# Triggers the action everty time there is a code push to the master branch
+name: Deploy Dev
 on:
   push:
     branches:
       - master
-
-# Specify what jobs to run
 jobs:
-  deploy:
-    name: deploy
-    runs-on: ubuntu-latest 
-    env: #Setup environmental variables for serverless deployment
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
+  deploy-dev:
+    runs-on: ubuntu-latest
     steps:
-      # Use github defaut action to trigger action in this repo. Mandatory
-      # https://help.github.com/en/actions/automating-your-workflow-with-github-actions/configuring-a-workflow#using-the-checkout-action
-      - uses: actions/checkout@v1 
-
-      - name: npm install dependencies
-        run: npm install
-        
-      - name: Serverless
-        uses: serverless/github-action@v1.53.0
-        with:
-          args: deploy
+    - uses: actions/checkout@v1
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '10.x'
+    - name: Install Serverless Framework
+      run: npm install -g serverless
+    - name: Serverless AWS authentication
+      run: sls config credentials --provider aws --key ${{ secrets.AWS_ACCESS_KEY_ID }} --secret ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    - name: Create env file
+      run: | # cp sample.env.yml env.yml
+        cat > env.yml << EOF
+        ${{ secrets.ENV }}
+        EOF
+    - name: Install NPM dependencies
+      run: npm install
+    # Optional
+    #- name: Build assets
+    #  run: npm run assets-dev
+    - name: Deploy Lambda functions
+      run: sls deploy -s dev
+    # Optional (to use with serverless-finch serverless plugin)
+    #- name: Deploy assets to S3
+    #  run: sls client deploy --no-delete-contents --no-confirm -s dev
