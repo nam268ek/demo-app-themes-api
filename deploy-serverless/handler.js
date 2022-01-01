@@ -9,7 +9,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cloudinary = require("cloudinary");
 const formData = require("express-form-data");
-const PORT = process.env.PORT || 5000;
+// const PORT = process.env.PORT || 5000;
 const db = mongoose.connection;
 
 const { authenticateToken } = require("./middleware/auth.middleware");
@@ -45,7 +45,7 @@ db.once("open", function () {
 });
 
 app.get("/", (req, res) => {
-  res.send("Hello World!");
+  res.send({status: "success", code: 200,  message: "Demo API theme."});
 });
 
 app.post("/image-upload", authenticateToken, (req, res) => {
@@ -429,6 +429,6 @@ app.post("/cart", authenticateToken, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
+// app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
 
-// module.exports.index = serverless(app);// deploy to serverless platform
+module.exports.handler = serverless(app);// deploy to serverless platform
