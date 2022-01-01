@@ -44,6 +44,10 @@ db.once("open", function () {
   console.log("Connected to mongodb server.");
 });
 
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
 app.post("/image-upload", authenticateToken, (req, res) => {
   const values = Object.values(req.files);
   const promises = values.map((image) =>
