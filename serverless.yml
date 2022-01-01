@@ -11,7 +11,15 @@ provider:
 
 functions:
   api:
-    handler: handler.index
+    handler: handler.handler
+    environment:
+      DB_URL: ${env:DB_URL}
+      SECRET_KEY: ${env:SECRET_KEY}
+      CLOUD_NAME: ${env:CLOUD_NAME}
+      API_KEY: ${env:API_SECRET}
+      API_SECRET: ${env:API_SECRET}
+      TOKEN_EXPIRE: ${env:TOKEN_EXPIRE}
+      REFRESH_TOKEN_EXPIRE: ${env:REFRESH_TOKEN_EXPIRE}
     events:
       - http:
           path: /
