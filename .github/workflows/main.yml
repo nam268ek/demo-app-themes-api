@@ -43,7 +43,7 @@ jobs:
     - uses: actions/checkout@v1
     - uses: actions/setup-node@v1
       with:
-        node-version: '10.x'
+        node-version: '16.x'
     - name: Install Serverless Framework
       run: npm install -g serverless
     - name: Serverless AWS authentication
@@ -59,7 +59,7 @@ jobs:
     #- name: Build assets
     #  run: npm run assets-dev
     - name: Deploy Lambda functions
-      run: sls deploy --stage dev
+      run: sls deploy 
     # Optional (to use with serverless-finch serverless plugin)
     #- name: Deploy assets to S3
     #  run: sls client deploy --no-delete-contents --no-confirm -s dev
