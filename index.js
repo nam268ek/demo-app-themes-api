@@ -1,6 +1,5 @@
 require("dotenv").config();
 const express = require("express");
-const serverless = require("serverless-http");
 const app = express();
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -297,14 +296,16 @@ app.post("/login", async (req, res) => {
         if (err) return res.status(500).send(err);
 
         const token = jwt.sign({ _id: isUser._id }, process.env.SECRET_KEY, {
-          expiresIn: process.env.TOKEN_EXPIRE,
+          // expiresIn: process.env.TOKEN_EXPIRE,
+          expiresIn: 60,
         });
 
         const refreshToken = jwt.sign(
           { _id: isUser._id },
           process.env.SECRET_KEY,
           {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+            // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+            expiresIn: 60 * 25,
           }
         );
 
@@ -334,35 +335,51 @@ app.post("/login", async (req, res) => {
   }
 });
 
-//==========================================================
+//=========================refresh token=================================
 var allRefreshTokens = {};
 // refresh jwt token expire time
-app.post("/auth/refresh", authenticateToken, async (req, res) => {
+app.post("/auth/refresh", async (req, res) => {
   try {
-    const { refreshToken } = req.body.params;
-    const { _id } = req.user;
+    const oldToken = req.body.refreshToken;
 
-    if (refreshToken && refreshToken in allRefreshTokens) {
-      const token = jwt.sign({ _id }, process.env.SECRET_KEY, {
-        expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+    if (oldToken) {
+      //check token request on server
+      const verifyToken = jwt.verify(
+        oldToken,
+        process.env.SECRET_KEY,
+        (err, decoded) => {
+          if (err) return err;
+          return decoded;
+        }
+      );
+
+      const { _id } = verifyToken;
+      // token is valid
+      const token = await jwt.sign({ _id }, process.env.SECRET_KEY, {
+        // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+        expiresIn: 60 * 20,
       });
 
-      const refreshToken = jwt.sign({ _id }, process.env.SECRET_KEY, {
-        expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+      const refreshToken = await jwt.sign({ _id }, process.env.SECRET_KEY, {
+        // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+        expiresIn: 60 * 40,
       });
 
-      allRefreshTokens[refreshToken].token = token;
-
+      //save refresh token
+      // allRefreshTokens[refreshToken].token = token;
+      console.log("refreshToken:", token);
+      return res.status(200).send({
+        status: "success",
+        code: 200,
+        data: { token, refreshToken },
+      });
+     
+    } else
       return res
-        .status(200)
-        .send({ status: "success", code: 200, data: { token, refreshToken } });
-    }
-
-    return res
-      .status(401)
-      .send({ status: "error", code: 401, message: "Invalid token" });
+        .status(401)
+        .send({ status: "error", code: 401, message: "Invalid token" });
   } catch (error) {
-    res.status(500).send({ status: "error", code: 500, message: error });
+    return res.status(500).send({ status: "error", code: 500, message: error });
   }
 });
 
@@ -430,5 +447,3 @@ app.post("/cart", authenticateToken, async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
-
-// module.exports.index = serverless(app);// deploy to serverless platform
