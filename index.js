@@ -160,10 +160,9 @@ app.get("/cardposts/:id", async (req, res) => {
   });
 });
 
-app.get("/user/:id", authenticateToken, async (req, res) => {
+app.get("/user", authenticateToken, async (req, res) => {
   try {
-    const user = await dbUser.findById(req.params.id);
-    console.log(user);
+    const user = await dbUser.findById(req.user._id);
     user
       ? res.status(200).send({
           status: "success",
@@ -297,7 +296,7 @@ app.post("/login", async (req, res) => {
 
         const token = jwt.sign({ _id: isUser._id }, process.env.SECRET_KEY, {
           // expiresIn: process.env.TOKEN_EXPIRE,
-          expiresIn: 60,
+          expiresIn: 60*60,
         });
 
         const refreshToken = jwt.sign(
@@ -305,7 +304,7 @@ app.post("/login", async (req, res) => {
           process.env.SECRET_KEY,
           {
             // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
-            expiresIn: 60 * 25,
+            expiresIn: 60 * 50,
           }
         );
 
@@ -352,28 +351,29 @@ app.post("/auth/refresh", async (req, res) => {
           return decoded;
         }
       );
-
+      
       const { _id } = verifyToken;
-      // token is valid
-      const token = await jwt.sign({ _id }, process.env.SECRET_KEY, {
-        // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
-        expiresIn: 60 * 20,
-      });
+      if (_id) {
+        // token is valid
+        const token = await jwt.sign({ _id }, process.env.SECRET_KEY, {
+          // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+          expiresIn: 60 * 20,
+        });
 
-      const refreshToken = await jwt.sign({ _id }, process.env.SECRET_KEY, {
-        // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
-        expiresIn: 60 * 40,
-      });
+        const refreshToken = await jwt.sign({ _id }, process.env.SECRET_KEY, {
+          // expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+          expiresIn: 60 * 40,
+        });
 
-      //save refresh token
-      // allRefreshTokens[refreshToken].token = token;
-      console.log("refreshToken:", token);
-      return res.status(200).send({
-        status: "success",
-        code: 200,
-        data: { token, refreshToken },
-      });
-     
+        //save refresh token
+        // allRefreshTokens[refreshToken].token = token;
+        console.log("refreshToken:", token);
+        return res.status(200).send({
+          status: "success",
+          code: 200,
+          data: { token, refreshToken },
+        });
+      }
     } else
       return res
         .status(401)
@@ -394,7 +394,7 @@ app.get("/cart", authenticateToken, async (req, res) => {
     const isItem = await dbCarts.findOne({ userId: _id });
     isItem ? res.status(200).send(isItem) : res.status(200).send({});
   } catch (error) {
-    return res.status(500).send(error);
+    return res.status(500).send({ status: "error", code: 500, message: error });
   }
 });
 
@@ -403,7 +403,7 @@ app.get("/checkout", authenticateToken, async (req, res) => {
     const { _id } = req.user;
     const isItem = await dbPurchase.find({ userId: _id });
 
-    isItem
+    isItem.length
       ? res.status(200).send({ status: "success", code: 200, data: isItem })
       : res
           .status(401)
