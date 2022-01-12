@@ -296,7 +296,7 @@ app.post("/login", async (req, res) => {
 
         const token = jwt.sign({ _id: isUser._id }, process.env.SECRET_KEY, {
           // expiresIn: process.env.TOKEN_EXPIRE,
-          expiresIn: 60*60,
+          expiresIn: 60 * 60,
         });
 
         const refreshToken = jwt.sign(
@@ -351,7 +351,7 @@ app.post("/auth/refresh", async (req, res) => {
           return decoded;
         }
       );
-      
+
       const { _id } = verifyToken;
       if (_id) {
         // token is valid
@@ -444,6 +444,69 @@ app.post("/cart", authenticateToken, async (req, res) => {
   } catch (error) {
     return res.status(500).send(error);
   }
+});
+
+//============================
+// This is a public sample test API key.
+// Don’t submit any personally identifiable information in requests made with this key.
+// Sign in to see your own test API key embedded in code samples.
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+// const stripe = require("stripe")("sk_test_51KGwE3Kp3PupSzuObYVs721pKIwuDWMqKxkHrbXaETXiyqv3BdFEn0Jv4NTIkEGBp8dD4lPmrR9PbuU8qOC14PR300wdxI5kpA");
+
+app.use(express.json());
+
+const calculateOrderAmount = (items) => {
+  // Replace this constant with a calculation of the order's amount
+  // Calculate the order total on the server to prevent
+  // people from directly manipulating the amount on the client
+  return 1400;
+};
+
+const chargeCustomer = async (customerId) => {
+  // Lookup the payment methods available for the customer
+  const paymentMethods = await stripe.paymentMethods.list({
+    customer: customerId,
+    type: "card",
+  });
+  try {
+    // Charge the customer and payment method immediately
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 1099,
+      currency: "eur",
+      customer: customerId,
+      payment_method: paymentMethods.data[0].id,
+      off_session: true,
+      confirm: true,
+    });
+  } catch (err) {
+    // Error code will be authentication_required if authentication is needed
+    console.log("Error code is: ", err.code);
+    const paymentIntentRetrieved = await stripe.paymentIntents.retrieve(
+      err.raw.payment_intent.id
+    );
+    console.log("PI retrieved: ", paymentIntentRetrieved.id);
+  }
+};
+const ENTRY_POINT_DOMAIN = "http://localhost:3000/cart";
+app.post("/create-checkout-session", async (req, res) => {
+  const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        name: "T-shirt",
+        description: "Comfortable cotton t-shirt",
+        images: ["https://picsum.photos/200/300"],
+        amount: 141,
+        currency: "usd",
+        quantity: 2,
+      },
+    ],
+    mode: "payment",
+    success_url: `${ENTRY_POINT_DOMAIN}?success=true`,
+    cancel_url: `${ENTRY_POINT_DOMAIN}?canceled=true`,
+  });
+
+  // res.redirect(303, session.url);
+  res.status(200).send({ status: "success", code: 200, data: session });
 });
 
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));

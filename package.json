@@ -13,7 +13,8 @@
     "express-form-data": "^2.0.17",
     "jsonwebtoken": "^8.5.1",
     "mongodb": "^4.2.1",
-    "mongoose": "^6.0.14"
+    "mongoose": "^6.0.14",
+    "stripe": "^8.195.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.15"
