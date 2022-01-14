@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const serverless = require("serverless-http");
+
 const app = express();
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -11,6 +12,7 @@ const cloudinary = require("cloudinary");
 const formData = require("express-form-data");
 // const PORT = process.env.PORT || 5000;
 const db = mongoose.connection;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const { authenticateToken } = require("./middleware/auth.middleware");
 
@@ -29,6 +31,8 @@ cloudinary.config({
 });
 
 app.use(formData.parse());
+app.use('/webhook', express.raw({type: "*/*"}))
+app.use(express.json())
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
@@ -184,8 +188,6 @@ app.get("/user", authenticateToken, async (req, res) => {
 });
 
 app.put("/user/update", authenticateToken, async (req, res) => {
-  console.log("profile:", req.body);
-
   try {
     const { firstName, lastName, email } = req.body.params;
     const user = await dbUser.findByIdAndUpdate(
@@ -297,7 +299,7 @@ app.post("/login", async (req, res) => {
 
         const token = jwt.sign({ _id: isUser._id }, process.env.SECRET_KEY, {
           // expiresIn: process.env.TOKEN_EXPIRE,
-          expiresIn: 60*60,
+          expiresIn: 60 * 60,
         });
 
         const refreshToken = jwt.sign(
@@ -352,7 +354,7 @@ app.post("/auth/refresh", async (req, res) => {
           return decoded;
         }
       );
-      
+
       const { _id } = verifyToken;
       if (_id) {
         // token is valid
@@ -435,7 +437,7 @@ app.post("/checkout", authenticateToken, async (req, res) => {
 app.post("/cart", authenticateToken, async (req, res) => {
   try {
     const { userId, products, total } = req.body.params;
-    console.log(typeof req.body.params);
+
     await dbCarts.findOneAndUpdate(
       { userId },
       { $set: { userId, products, total } },
@@ -447,6 +449,106 @@ app.post("/cart", authenticateToken, async (req, res) => {
   }
 });
 
-// app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
+//============================
+var productsSessionPayment = {};
+app.post("/create-checkout-session", async (req, res) => {
+  try {
+    // handle data for create checkout session API
+    const filterDataPayment = (data) => {
+      //temporary assign products for user payment to variable => handle webhook next.
+      productsSessionPayment = Object.assign({}, data);
+      // filter data for create checkout session API
+      return data.products.map((item) => {
+        return {
+          name: item.name,
+          description: item.description,
+          images: [item.image],
+          amount: Number(item.price.toString() + "00"),
+          currency: "usd",
+          quantity: item.qty,
+        };
+      });
+    };
 
+    // create checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: filterDataPayment(req.body.params),
+      mode: "payment",
+      success_url: `${process.env.ENTRY_POINT_DOMAIN}?success=true`,
+      cancel_url: `${process.env.ENTRY_POINT_DOMAIN}?canceled=true`,
+    });
+
+    return res
+      .status(200)
+      .send({ status: "success", code: 200, data: session });
+  } catch (error) {
+    return res.status(500).send({ status: "error", code: 500, message: error });
+  }
+});
+
+//============================webhook==============================
+const handlePaymentIntentSucceeded = async (
+  productsSessionPayment,
+  paymentIntent
+) => {
+  try {
+    if (paymentIntent.status === "succeeded") {
+      //update save products payment to database
+      const { userId, products, total } = productsSessionPayment;
+      if(userId && products && total) await dbPurchase.create({ userId, products, total });
+    }
+    //clear productsSessionPayment
+    productsSessionPayment = {};
+  } catch (error) {
+    res.status(400).send(`Webhook Error save data: ${error.message}`);
+  }
+};
+
+app.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    let event = req.body;
+
+    if (process.env.ENDPOINT_STRIPE_WEBHOOK_SECRET) {
+      const signature = req.headers["stripe-signature"];
+      try {
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          signature,
+          process.env.ENDPOINT_STRIPE_WEBHOOK_SECRET
+        );
+      } catch (error) {
+        res.status(400).send(`Webhook Error: ${error.message}`);
+      }
+    }
+    // Handle the event
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        const paymentIntent = event.data.object;
+        // Then define and call a method to handle the successful payment intent.
+        handlePaymentIntentSucceeded(productsSessionPayment, paymentIntent);
+        break;
+      case "payment_method.attached":
+        const paymentMethod = event.data.object;
+        // Then define and call a method to handle the successful attachment of a PaymentMethod.
+        // handlePaymentMethodAttached(paymentMethod);
+        break;
+      case "payment_intent.payment_failed":
+        const paymentIntentFailed = event.data.object;
+       
+        break;
+      default:
+        // Unexpected event type
+        console.log(`Unhandled event type ${event.type}.`);
+    }
+
+    // Return a 200 response to acknowledge receipt of the event
+    res.send();
+  }
+);
+
+// app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
 module.exports.handler = serverless(app);// deploy to serverless platform
+

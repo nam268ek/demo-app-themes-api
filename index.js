@@ -1,5 +1,7 @@
 require("dotenv").config();
 const express = require("express");
+// const serverless = require("serverless-http");
+
 const app = express();
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -10,6 +12,7 @@ const cloudinary = require("cloudinary");
 const formData = require("express-form-data");
 const PORT = process.env.PORT || 5000;
 const db = mongoose.connection;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const { authenticateToken } = require("./middleware/auth.middleware");
 
@@ -28,6 +31,8 @@ cloudinary.config({
 });
 
 app.use(formData.parse());
+app.use('/webhook', express.raw({type: "*/*"}))
+app.use(express.json())
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
@@ -183,8 +188,6 @@ app.get("/user", authenticateToken, async (req, res) => {
 });
 
 app.put("/user/update", authenticateToken, async (req, res) => {
-  console.log("profile:", req.body);
-
   try {
     const { firstName, lastName, email } = req.body.params;
     const user = await dbUser.findByIdAndUpdate(
@@ -434,7 +437,7 @@ app.post("/checkout", authenticateToken, async (req, res) => {
 app.post("/cart", authenticateToken, async (req, res) => {
   try {
     const { userId, products, total } = req.body.params;
-    console.log(typeof req.body.params);
+
     await dbCarts.findOneAndUpdate(
       { userId },
       { $set: { userId, products, total } },
@@ -447,66 +450,105 @@ app.post("/cart", authenticateToken, async (req, res) => {
 });
 
 //============================
-// This is a public sample test API key.
-// Don’t submit any personally identifiable information in requests made with this key.
-// Sign in to see your own test API key embedded in code samples.
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-// const stripe = require("stripe")("sk_test_51KGwE3Kp3PupSzuObYVs721pKIwuDWMqKxkHrbXaETXiyqv3BdFEn0Jv4NTIkEGBp8dD4lPmrR9PbuU8qOC14PR300wdxI5kpA");
-
-app.use(express.json());
-
-const calculateOrderAmount = (items) => {
-  // Replace this constant with a calculation of the order's amount
-  // Calculate the order total on the server to prevent
-  // people from directly manipulating the amount on the client
-  return 1400;
-};
-
-const chargeCustomer = async (customerId) => {
-  // Lookup the payment methods available for the customer
-  const paymentMethods = await stripe.paymentMethods.list({
-    customer: customerId,
-    type: "card",
-  });
-  try {
-    // Charge the customer and payment method immediately
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: 1099,
-      currency: "eur",
-      customer: customerId,
-      payment_method: paymentMethods.data[0].id,
-      off_session: true,
-      confirm: true,
-    });
-  } catch (err) {
-    // Error code will be authentication_required if authentication is needed
-    console.log("Error code is: ", err.code);
-    const paymentIntentRetrieved = await stripe.paymentIntents.retrieve(
-      err.raw.payment_intent.id
-    );
-    console.log("PI retrieved: ", paymentIntentRetrieved.id);
-  }
-};
-const ENTRY_POINT_DOMAIN = "http://localhost:3000/cart";
+var productsSessionPayment = {};
 app.post("/create-checkout-session", async (req, res) => {
-  const session = await stripe.checkout.sessions.create({
-    line_items: [
-      {
-        name: "T-shirt",
-        description: "Comfortable cotton t-shirt",
-        images: ["https://picsum.photos/200/300"],
-        amount: 141,
-        currency: "usd",
-        quantity: 2,
-      },
-    ],
-    mode: "payment",
-    success_url: `${ENTRY_POINT_DOMAIN}?success=true`,
-    cancel_url: `${ENTRY_POINT_DOMAIN}?canceled=true`,
-  });
+  try {
+    // handle data for create checkout session API
+    const filterDataPayment = (data) => {
+      //temporary assign products for user payment to variable => handle webhook next.
+      productsSessionPayment = Object.assign({}, data);
+      // filter data for create checkout session API
+      return data.products.map((item) => {
+        return {
+          name: item.name,
+          description: item.description,
+          images: [item.image],
+          amount: Number(item.price.toString() + "00"),
+          currency: "usd",
+          quantity: item.qty,
+        };
+      });
+    };
 
-  // res.redirect(303, session.url);
-  res.status(200).send({ status: "success", code: 200, data: session });
+    // create checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: filterDataPayment(req.body.params),
+      mode: "payment",
+      success_url: `${process.env.ENTRY_POINT_DOMAIN}?success=true`,
+      cancel_url: `${process.env.ENTRY_POINT_DOMAIN}?canceled=true`,
+    });
+
+    return res
+      .status(200)
+      .send({ status: "success", code: 200, data: session });
+  } catch (error) {
+    return res.status(500).send({ status: "error", code: 500, message: error });
+  }
 });
 
+//============================webhook==============================
+const handlePaymentIntentSucceeded = async (
+  productsSessionPayment,
+  paymentIntent
+) => {
+  try {
+    if (paymentIntent.status === "succeeded") {
+      //update save products payment to database
+      const { userId, products, total } = productsSessionPayment;
+      if(userId && products && total) await dbPurchase.create({ userId, products, total });
+    }
+    //clear productsSessionPayment
+    productsSessionPayment = {};
+  } catch (error) {
+    res.status(400).send(`Webhook Error save data: ${error.message}`);
+  }
+};
+
+app.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    let event = req.body;
+
+    if (process.env.ENDPOINT_STRIPE_WEBHOOK_SECRET) {
+      const signature = req.headers["stripe-signature"];
+      try {
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          signature,
+          process.env.ENDPOINT_STRIPE_WEBHOOK_SECRET
+        );
+      } catch (error) {
+        res.status(400).send(`Webhook Error: ${error.message}`);
+      }
+    }
+    // Handle the event
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        const paymentIntent = event.data.object;
+        // Then define and call a method to handle the successful payment intent.
+        handlePaymentIntentSucceeded(productsSessionPayment, paymentIntent);
+        break;
+      case "payment_method.attached":
+        const paymentMethod = event.data.object;
+        // Then define and call a method to handle the successful attachment of a PaymentMethod.
+        // handlePaymentMethodAttached(paymentMethod);
+        break;
+      case "payment_intent.payment_failed":
+        const paymentIntentFailed = event.data.object;
+       
+        break;
+      default:
+        // Unexpected event type
+        console.log(`Unhandled event type ${event.type}.`);
+    }
+
+    // Return a 200 response to acknowledge receipt of the event
+    res.send();
+  }
+);
+
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
+// module.exports.handler = serverless(app);// deploy to serverless platform
+
