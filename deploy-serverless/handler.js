@@ -1,6 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const serverless = require("serverless-http");
+const helmet = require("helmet");
+
 
 const app = express();
 const cors = require("cors");
@@ -35,6 +37,7 @@ app.use('/webhook', express.raw({type: "*/*"}))
 app.use(express.json())
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(helmet());
 app.use(cors());
 app.use(express.static("public"));
 
