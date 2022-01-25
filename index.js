@@ -24,6 +24,7 @@ const dbCardPost = require("./models/cardPost.model");
 const dbUser = require("./models/user.model");
 const dbCarts = require("./models/carts.model");
 const dbPurchase = require("./models/purchase.model");
+const dbOrder = require("./models/order.model");
 
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
@@ -32,8 +33,8 @@ cloudinary.config({
 });
 
 app.use(formData.parse());
-app.use('/webhook', express.raw({type: "*/*"}))
-app.use(express.json())
+app.use("/webhook", express.raw({ type: "*/*" }));
+app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(helmet());
@@ -414,7 +415,24 @@ app.get("/checkout", authenticateToken, async (req, res) => {
           .status(401)
           .send({ status: "error", code: 401, message: "User not purchase" });
   } catch (error) {
-    return res.status(500).send(error);
+    return res.status(500).send({ status: "error", code: 500, message: error });
+  }
+});
+
+app.get("/order/canceled", authenticateToken, async (req, res) => {
+  try {
+    const { _id } = req.user;
+    const isItem = await dbOrder.find({ userId: _id });
+
+    isItem.length
+      ? res.status(200).send({ status: "success", code: 200, data: isItem })
+      : res.status(401).send({
+          status: "error",
+          code: 401,
+          message: "User not order cancel",
+        });
+  } catch (error) {
+    return res.status(500).send({ status: "error", code: 500, message: error });
   }
 });
 
@@ -452,9 +470,26 @@ app.post("/cart", authenticateToken, async (req, res) => {
 });
 
 //============================
-var productsSessionPayment = {};
+var productsSessionPayment = {
+  userId: "61c5834030e56bd51cf3d52e",
+  products: [
+    {
+      _id: "61ae27807eee1c6f667bb82f",
+      name: "Ubud",
+      description:
+        "A newsletter-integrated and personal Ghost theme. Choose from six homepage styles and customize them with your favorite colors.",
+      image: "https://aspirethemes.com/images/themes/ubud/preview.webp",
+      price: 149,
+      version: "1.0.4",
+      qty: 1,
+    },
+  ],
+  total: 149,
+};
+
 app.post("/create-checkout-session", async (req, res) => {
   try {
+    const { email } = req.body.params;
     // handle data for create checkout session API
     const filterDataPayment = (data) => {
       //temporary assign products for user payment to variable => handle webhook next.
@@ -471,10 +506,11 @@ app.post("/create-checkout-session", async (req, res) => {
         };
       });
     };
-
+    console.log("email:", email);
     // create checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
+      customer_email: email,
       line_items: filterDataPayment(req.body.params),
       mode: "payment",
       success_url: `${process.env.ENTRY_POINT_DOMAIN}?success=true`,
@@ -490,20 +526,32 @@ app.post("/create-checkout-session", async (req, res) => {
 });
 
 //============================webhook==============================
+// handle webhook payment intent success
 const handlePaymentIntentSucceeded = async (
   productsSessionPayment,
   paymentIntent
 ) => {
-  try {
-    if (paymentIntent.status === "succeeded") {
-      //update save products payment to database
-      const { userId, products, total } = productsSessionPayment;
-      if(userId && products && total) await dbPurchase.create({ userId, products, total });
+  if (paymentIntent.status === "succeeded") {
+    //update save products payment to database
+    const { userId, products, total } = productsSessionPayment;
+    if (userId && products && total) {
+      await dbPurchase.create({ userId, products, total });
+      //clear productsSessionPayment
+      productsSessionPayment = {};
     }
+  }
+};
+// handle webhook payment intent failed
+const handlePaymentCanceled = async (
+  productsSessionPayment,
+  paymentIntentCreate
+) => {
+  if (paymentIntentCreate.status === "requires_payment_method") {
+    const { userId, products, total } = productsSessionPayment;
+    if (userId && products && total)
+      await dbOrder.create({ userId, products, total });
     //clear productsSessionPayment
     productsSessionPayment = {};
-  } catch (error) {
-    res.status(400).send(`Webhook Error save data: ${error.message}`);
   }
 };
 
@@ -527,25 +575,20 @@ app.post(
     }
     // Handle the event
     switch (event.type) {
+      case "payment_intent.created":
+        const paymentIntentCreate = event.data.object;
+        //handle webhook payment intent created cancel
+        // handlePaymentCanceled(productsSessionPayment, paymentIntentCreate);
+        break;
       case "payment_intent.succeeded":
         const paymentIntent = event.data.object;
         // Then define and call a method to handle the successful payment intent.
         handlePaymentIntentSucceeded(productsSessionPayment, paymentIntent);
         break;
-      case "payment_method.attached":
-        const paymentMethod = event.data.object;
-        // Then define and call a method to handle the successful attachment of a PaymentMethod.
-        // handlePaymentMethodAttached(paymentMethod);
-        break;
-      case "payment_intent.payment_failed":
-        const paymentIntentFailed = event.data.object;
-       
-        break;
       default:
         // Unexpected event type
         console.log(`Unhandled event type ${event.type}.`);
     }
-
     // Return a 200 response to acknowledge receipt of the event
     res.send();
   }
@@ -553,4 +596,3 @@ app.post(
 
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}.`));
 // module.exports.handler = serverless(app);// deploy to serverless platform
-
