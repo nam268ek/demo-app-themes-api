@@ -1,0 +1,19 @@
+org: nam268ek
+app: be-demo-app-theme
+service: be-demo-app-theme
+useDotenv: true
+plugins:
+  - serverless-dotenv-plugin
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  stage: dev
+  region: ap-southeast-1
+
+functions:
+  api:
+    handler: handler.handler
+    events:
+      - httpApi: "*"
+
