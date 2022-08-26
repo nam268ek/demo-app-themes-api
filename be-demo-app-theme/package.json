@@ -13,7 +13,7 @@
     "express-form-data": "^2.0.17",
     "jsonwebtoken": "^8.5.1",
     "mongodb": "^4.2.1",
-    "mongoose": "^6.0.14",
+    "mongoose": "^6.4.6",
     "serverless-http": "^2.7.0",
     "stripe": "^8.197.0"
   },
